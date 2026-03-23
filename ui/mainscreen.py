@@ -791,12 +791,16 @@ if st.session_state.current_tab == "Run Scraper":
                 with st.spinner("Running Korean scraper..."):
                     Testkorean.run()
             else:
-                import scripts.scrapper
-                import threading
+                import subprocess
+                scraper_script = os.path.join(project_root, "scripts", "scrapper.py")
                 with st.spinner("Running scraper..."):
-                    t = threading.Thread(target=scripts.scrapper.run_scraper)
-                    t.start()
-                    t.join()
+                    result = subprocess.run(
+                        [sys.executable, scraper_script],
+                        capture_output=True, text=True, cwd=project_root
+                    )
+                if result.returncode != 0:
+                    st.error(f"Scraper error:\n{result.stderr}")
+                    st.stop()
 
             progress_bar.progress(1.0)
 

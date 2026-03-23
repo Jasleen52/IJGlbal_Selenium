@@ -7,7 +7,10 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 import os
 import re
- 
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from scripts.NewsIntentOpenAI import detect_news_intent
 from scripts.ParametersExtract import extract_project_details
 
