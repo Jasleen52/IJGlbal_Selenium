@@ -17,6 +17,14 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# ---------- PLAYWRIGHT INSTALL (once) ----------
+
+@st.cache_resource
+def install_playwright():
+    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=False)
+
+install_playwright()
+
 # ---------- PAGE CONFIG ----------
 
 st.set_page_config(
