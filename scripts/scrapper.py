@@ -13,7 +13,7 @@ from docx.oxml.ns import qn
 import os
 import re
 import platform
-
+from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
  
