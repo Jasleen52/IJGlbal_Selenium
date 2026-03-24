@@ -91,6 +91,21 @@ def run_scraper():
                 chromedriver_path = path
                 break
 
+    # Search entire filesystem for chromedriver as last resort
+    if not chromedriver_path:
+        import subprocess as sp
+        try:
+            result = sp.run(["find", "/", "-name", "chromedriver", "-type", "f"], 
+                          capture_output=True, text=True, timeout=10)
+            paths = [p for p in result.stdout.strip().split("\n") if p]
+            print(f"Found chromedrivers: {paths}")
+            if paths:
+                chromedriver_path = paths[0]
+        except Exception as e:
+            print(f"Find error: {e}")
+
+    print(f"Browser: {chromium_path}, Chromedriver: {chromedriver_path}")
+
     if not chromedriver_path:
         raise RuntimeError("chromedriver not found. Install chromium-driver via packages.txt")
 
