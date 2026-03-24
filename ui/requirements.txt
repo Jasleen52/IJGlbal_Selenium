@@ -1,8 +1,9 @@
 streamlit
 openai
 python-docx
-playwright
-requests
 lxml
 python-dotenv
 pandas
+selenium
+webdriver-manager
+httpx

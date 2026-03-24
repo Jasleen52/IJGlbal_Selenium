@@ -1,18 +1,20 @@
 import json
 import pprint
 from datetime import datetime, timedelta
-from playwright.sync_api import sync_playwright
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait, Select
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+import time
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 import os
 import re
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from scripts.NewsIntentOpenAI import detect_news_intent
-from scripts.ParametersExtract import extract_project_details
+ 
+from NewsIntentOpenAI import detect_news_intent
+from ParametersExtract import extract_project_details
 
 
 def add_hyperlink(paragraph, url, text):
@@ -47,23 +49,32 @@ def run_scraper():
  
     print("Opening sites.json...")
  
-   
-
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "sites.json")
-    with open(config_path, "r") as f:
+    with open("config/sites.json", "r") as f:
         data = json.load(f)
  
     sites = data["sites"]
  
     all_projects_text = []
  
-    with sync_playwright() as p:
- 
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
- 
-        page.set_default_timeout(60000)
- 
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-software-rasterizer")
+
+    # Use chromium binary on Streamlit Cloud (Linux)
+    import shutil
+    chromium_path = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
+    if chromium_path:
+        options.binary_location = chromium_path
+
+    driver = webdriver.Chrome(options=options)
+    wait = WebDriverWait(driver, 60)
+
+    try:
         for site in sites:
  
             if site["valid"] != "Yes":
@@ -72,11 +83,9 @@ def run_scraper():
  
             print("\nOpening site:", site["siteName"])
  
-            page.goto(site["siteURL"], timeout=60000)
- 
-            page.wait_for_load_state("domcontentloaded")
-            page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(2000)
+            driver.get(site["siteURL"])
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+            time.sleep(2)
  
             industries = site["industryType"]
  
@@ -87,9 +96,14 @@ def run_scraper():
             for industry in industries:
  
                 print("\nSelecting Industry:", industry)
- 
+
+                driver.get(site["siteURL"])
+                wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+                time.sleep(2)
+
                 try:
-                    page.select_option("#dropdown_3", label=industry)
+                    dropdown = wait.until(EC.presence_of_element_located((By.ID, "dropdown_3")))
+                    Select(dropdown).select_by_visible_text(industry)
                 except:
                     print(f"Industry '{industry}' not found in dropdown. Skipping...")
                     continue
@@ -101,67 +115,61 @@ def run_scraper():
  
                 print("Setting date range:", date_from, "to", date_to)
  
-                page.evaluate(
-                    """([selector, value]) => {
-                        const el = document.querySelector(selector);
-                        el.value = value;
+                for field_id, value in [("date_4", date_from), ("date_5", date_to)]:
+                    driver.execute_script(
+                        """const el = document.getElementById(arguments[0]);
+                        el.value = arguments[1];
                         el.dispatchEvent(new Event('input', { bubbles: true }));
-                        el.dispatchEvent(new Event('change', { bubbles: true }));
-                    }""",
-                    ["#date_4", date_from]
-                )
- 
-                page.evaluate(
-                    """([selector, value]) => {
-                        const el = document.querySelector(selector);
-                        el.value = value;
-                        el.dispatchEvent(new Event('input', { bubbles: true }));
-                        el.dispatchEvent(new Event('change', { bubbles: true }));
-                    }""",
-                    ["#date_5", date_to]
-                )
+                        el.dispatchEvent(new Event('change', { bubbles: true }));""",
+                        field_id, value
+                    )
+
+                time.sleep(1)
  
                 print("Clicking Apply Filter")
-                
+
                 try:
-                    page.click("button:has-text('Apply Filter')")
-                except:
-                    print("Warning: Could not click Apply Filter button. Trying alternative selector...")
-                    try:
-                        page.click("button[type='submit']")
-                    except:
-                        print("Error: Could not find Apply Filter button. Skipping industry...")
-                        continue
+                    driver.execute_script("""
+                        var btn = document.querySelector('button.btn-entitylist-filter-submit');
+                        var target = btn.getAttribute('data-target');
+                        var entitylist = jQuery(btn).closest('.entitylist');
+                        var grid = entitylist.find('.entity-grid').filter(':first');
+                        var formData = jQuery(target).find('input,select').serialize();
+                        grid.trigger('metafilter', formData);
+                    """)
+                except Exception as e:
+                    print(f"Apply Filter error: {e}")
+                    continue
  
                 # Wait for page to process the filter
-                page.wait_for_timeout(3000)
+                time.sleep(3)
                 # Check if results table exists
                 try:
-                    page.wait_for_selector("table tbody tr", timeout=15000)
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
                 except:
                     print(f"No results found for industry '{industry}' in date range {date_from} to {date_to}")
                     print("Skipping to next industry...")
                     continue
                 
                 # Check if there are actual data rows (not just "No records found" message)
-                rows = page.query_selector_all("table tbody tr")
+                rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
                 if len(rows) == 0:
                     print(f"No records found for industry '{industry}'")
                     continue
                 
                 # Check if it's an empty state message
-                first_row_text = rows[0].inner_text().lower() if rows else ""
+                first_row_text = rows[0].text.lower() if rows else ""
                 if "no records" in first_row_text or "no results" in first_row_text:
                     print(f"No records found for industry '{industry}'")
                     continue
  
                 # Find column indexes
-                header_cells = page.query_selector_all("table thead tr th")
+                header_cells = driver.find_elements(By.CSS_SELECTOR, "table thead tr th")
                 valid_date_idx = None
                 location_idx = None
  
                 for idx, th in enumerate(header_cells):
-                    header_text = th.inner_text().strip().lower()
+                    header_text = th.text.strip().lower()
  
                     if "valid date" in header_text:
                         valid_date_idx = idx
@@ -169,52 +177,50 @@ def run_scraper():
                     if "location" in header_text:
                         location_idx = idx
  
-                rows = page.query_selector_all("table tbody tr")
+                rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
  
                 print("Total records found:", len(rows))
  
                 for i in range(len(rows)):
  
-                    rows = page.query_selector_all("table tbody tr")
+                    rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
  
-                    link = rows[i].query_selector("td:first-child a")
- 
-                    if not link:
+                    cells = rows[i].find_elements(By.TAG_NAME, "td")
+                    try:
+                        link = cells[0].find_element(By.TAG_NAME, "a")
+                    except:
                         continue
  
-                    epbc_number = link.inner_text()
+                    epbc_number = link.text
  
                     # Extract table values
                     valid_date = None
                     location = None
  
-                    cells = rows[i].query_selector_all("td")
- 
                     if valid_date_idx is not None and len(cells) > valid_date_idx:
-                        valid_date = cells[valid_date_idx].inner_text().strip()
+                        valid_date = cells[valid_date_idx].text.strip()
  
                     if location_idx is not None and len(cells) > location_idx:
-                        location = cells[location_idx].inner_text().strip()
+                        location = cells[location_idx].text.strip()
  
                     print("\nOpening record:", epbc_number)
- 
  
                     link.click()
  
                     try:
-                        page.wait_for_selector("text=Project description", timeout=20000)
+                        wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Project description')]")))
                     except:
-                        page.wait_for_selector("body", timeout=10000)
+                        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
  
-                    page.wait_for_timeout(3000)
+                    time.sleep(3)
  
-                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    page.wait_for_timeout(1500)
+                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+                    time.sleep(1.5)
  
                     # Capture the project page URL after navigation
-                    source_url = page.url
+                    source_url = driver.current_url
  
-                    text = page.locator("body").inner_text(timeout=30000)
+                    text = driver.find_element(By.TAG_NAME, "body").text
  
                     all_projects_text.append({
                         "epbc_number": epbc_number,
@@ -230,29 +236,32 @@ def run_scraper():
                         }
                     })
  
-                    page.go_back()
+                    driver.back()
  
-                    page.wait_for_load_state("domcontentloaded")
-                    page.wait_for_load_state("networkidle")
-                    page.wait_for_timeout(2000)
+                    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+                    time.sleep(2)
                     
                     try:
-                        page.click("button:has-text('Apply Filter')")
+                        driver.execute_script("""
+                            var btn = document.querySelector('button.btn-entitylist-filter-submit');
+                            var target = btn.getAttribute('data-target');
+                            var entitylist = jQuery(btn).closest('.entitylist');
+                            var grid = entitylist.find('.entity-grid').filter(':first');
+                            var formData = jQuery(target).find('input,select').serialize();
+                            grid.trigger('metafilter', formData);
+                        """)
                     except:
-                        print("Warning: Could not click Apply Filter button after going back")
-                        try:
-                            page.click("button[type='submit']")
-                        except:
-                            pass
+                        print("Warning: Could not trigger metafilter after going back")
  
                     # Wait for table to reload after going back
                     try:
-                        page.wait_for_selector("table tbody tr", timeout=15000)
+                        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
                     except:
                         print("Warning: Table did not reload after going back. Continuing...")
                         # Try to continue anyway
- 
-        browser.close()
+
+    finally:
+        driver.quit()
  
     print("\n===== FULL ARRAY DATA =====\n")
     pprint.pprint(all_projects_text)
@@ -271,12 +280,8 @@ def run_scraper():
         print("\nExtracted JSON:\n")
         print(structured_data)
  
-        # OneDrive auto detection
-        #onedrive_path = os.getenv("OneDriveCommercial") or os.getenv("OneDrive")
- 
-        #output_dir = os.path.join(onedrive_path, "IJ Global Extracted File")
         output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output")
-
+ 
         os.makedirs(output_dir, exist_ok=True)
  
         if isinstance(structured_data, str):
