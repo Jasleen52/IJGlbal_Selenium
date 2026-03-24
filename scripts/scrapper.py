@@ -13,7 +13,8 @@ from docx.oxml.ns import qn
 import os
 import re
 import platform
-from selenium.webdriver.chrome.service import Service
+
+from webdriver_manager.chrome import ChromeDriverManager
 
  
 from NewsIntentOpenAI import detect_news_intent
@@ -70,12 +71,11 @@ def run_scraper():
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-software-rasterizer")
 
-    # Use chromium binary on Streamlit Cloud (Linux)
-    service = Service("/usr/bin/chromedriver")
+    
 
     driver = webdriver.Chrome(
-            service=service,
-            options=options
+        service=Service(ChromeDriverManager(version="latest").install()),
+        options=options
         )
 
     

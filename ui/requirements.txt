@@ -6,3 +6,4 @@ python-dotenv
 pandas
 selenium
 httpx
+webdriver-manager
