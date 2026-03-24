@@ -1,0 +1,8 @@
+streamlit
+openai
+python-docx
+lxml
+python-dotenv
+pandas
+selenium
+httpx
