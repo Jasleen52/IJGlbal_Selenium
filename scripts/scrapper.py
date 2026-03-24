@@ -77,27 +77,26 @@ def run_scraper():
     )
     if chromium_path:
         options.binary_location = chromium_path
-        print(f"Using browser: {chromium_path}")
-    else:
-        print("No chromium/chrome binary found on PATH")
 
     chromedriver_path = (
         shutil.which("chromedriver") or
         shutil.which("chromium-driver")
     )
-    print(f"Chromedriver path: {chromedriver_path}")
 
-    # Check common Linux paths manually
-    import glob
-    for pattern in ["/usr/bin/chrom*", "/usr/lib/chromium*", "/snap/bin/chrom*"]:
-        matches = glob.glob(pattern)
-        if matches:
-            print(f"Found at {pattern}: {matches}")
+    # Check common Linux paths if not found on PATH
+    if not chromedriver_path:
+        for path in ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver",
+                     "/usr/lib/chromium-browser/chromedriver", "/snap/bin/chromedriver"]:
+            if os.path.exists(path):
+                chromedriver_path = path
+                break
 
-    if chromedriver_path:
-        driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
-    else:
-        driver = webdriver.Chrome(options=options)
+    if not chromedriver_path:
+        raise RuntimeError("chromedriver not found. Install chromium-driver via packages.txt")
+
+    # Disable Selenium Manager to prevent auto-downloading incompatible chromedriver
+    os.environ["SE_MANAGER_PATH"] = ""
+    driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
 
     
     wait = WebDriverWait(driver, 60)
