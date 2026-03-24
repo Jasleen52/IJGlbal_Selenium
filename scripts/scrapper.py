@@ -77,12 +77,23 @@ def run_scraper():
     )
     if chromium_path:
         options.binary_location = chromium_path
+        print(f"Using browser: {chromium_path}")
+    else:
+        print("No chromium/chrome binary found on PATH")
 
-    # Use system chromedriver (matches installed chromium on Streamlit Cloud)
     chromedriver_path = (
         shutil.which("chromedriver") or
         shutil.which("chromium-driver")
     )
+    print(f"Chromedriver path: {chromedriver_path}")
+
+    # Check common Linux paths manually
+    import glob
+    for pattern in ["/usr/bin/chrom*", "/usr/lib/chromium*", "/snap/bin/chrom*"]:
+        matches = glob.glob(pattern)
+        if matches:
+            print(f"Found at {pattern}: {matches}")
+
     if chromedriver_path:
         driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
     else:
