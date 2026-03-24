@@ -6,15 +6,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+import shutil
 import time
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 import os
 import re
-import platform
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 
  
 from NewsIntentOpenAI import detect_news_intent
@@ -61,8 +60,6 @@ def run_scraper():
     all_projects_text = []
  
     options = Options()
-    if platform.system() == "Linux":
-       options.binary_location = "/usr/bin/chromium"
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -71,9 +68,32 @@ def run_scraper():
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-software-rasterizer")
 
-    
+    # Auto-detect chromium or chrome binary
+    chromium_path = (
+        shutil.which("chromium") or
+        shutil.which("chromium-browser") or
+        shutil.which("google-chrome") or
+        shutil.which("google-chrome-stable")
+    )
+    if chromium_path:
+        options.binary_location = chromium_path
 
-    driver = webdriver.Chrome(options=options)
+    # Auto-detect chromedriver
+    chromedriver_path = shutil.which("chromedriver")
+    if chromedriver_path:
+        service = Service(chromedriver_path)
+        driver = webdriver.Chrome(service=service, options=options)
+    else:
+        try:
+            from webdriver_manager.chrome import ChromeDriverManager
+            from webdriver_manager.core.os_manager import ChromeType
+            if chromium_path and "chromium" in chromium_path:
+                service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
+            else:
+                service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=options)
+        except Exception:
+            driver = webdriver.Chrome(options=options)
 
     
     wait = WebDriverWait(driver, 60)
