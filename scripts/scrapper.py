@@ -78,22 +78,15 @@ def run_scraper():
     if chromium_path:
         options.binary_location = chromium_path
 
-    # Auto-detect chromedriver
-    chromedriver_path = shutil.which("chromedriver")
+    # Use system chromedriver (matches installed chromium on Streamlit Cloud)
+    chromedriver_path = (
+        shutil.which("chromedriver") or
+        shutil.which("chromium-driver")
+    )
     if chromedriver_path:
-        service = Service(chromedriver_path)
-        driver = webdriver.Chrome(service=service, options=options)
+        driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
     else:
-        try:
-            from webdriver_manager.chrome import ChromeDriverManager
-            from webdriver_manager.core.os_manager import ChromeType
-            if chromium_path and "chromium" in chromium_path:
-                service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
-            else:
-                service = Service(ChromeDriverManager().install())
-            driver = webdriver.Chrome(service=service, options=options)
-        except Exception:
-            driver = webdriver.Chrome(options=options)
+        driver = webdriver.Chrome(options=options)
 
     
     wait = WebDriverWait(driver, 60)
