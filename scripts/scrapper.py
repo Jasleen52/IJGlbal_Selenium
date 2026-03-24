@@ -12,6 +12,9 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 import os
 import re
+import platform
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
  
 from NewsIntentOpenAI import detect_news_intent
 from ParametersExtract import extract_project_details
@@ -57,6 +60,8 @@ def run_scraper():
     all_projects_text = []
  
     options = Options()
+    if platform.system() == "Linux":
+       options.binary_location = "/usr/bin/chromium"
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -66,12 +71,12 @@ def run_scraper():
     options.add_argument("--disable-software-rasterizer")
 
     # Use chromium binary on Streamlit Cloud (Linux)
-    import shutil
-    chromium_path = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
-    if chromium_path:
-        options.binary_location = chromium_path
+    driver = webdriver.Chrome(
+    service=Service(ChromeDriverManager().install()),
+    options=options
+        )
 
-    driver = webdriver.Chrome(options=options)
+    
     wait = WebDriverWait(driver, 60)
 
     try:
