@@ -14,7 +14,7 @@ import os
 import re
 import platform
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+
  
 from NewsIntentOpenAI import detect_news_intent
 from ParametersExtract import extract_project_details
@@ -71,9 +71,11 @@ def run_scraper():
     options.add_argument("--disable-software-rasterizer")
 
     # Use chromium binary on Streamlit Cloud (Linux)
+    service = Service("/usr/bin/chromedriver")
+
     driver = webdriver.Chrome(
-    service=Service(ChromeDriverManager().install()),
-    options=options
+            service=service,
+            options=options
         )
 
     
