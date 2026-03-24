@@ -74,7 +74,7 @@ def run_scraper():
     
 
     driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager(version="latest").install()),
+        service=Service(ChromeDriverManager().install()),
         options=options
         )
 
