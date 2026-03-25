@@ -2,12 +2,7 @@ import os
 import json
 import streamlit as st
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import time
+import httpx
 from docx import Document
 from openai import AzureOpenAI
 from dotenv import load_dotenv
@@ -48,21 +43,14 @@ def scrape_text():
 
     print("Opening page...")
 
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-
-    driver = webdriver.Chrome(options=options)
-    try:
-        driver.get(URL)
-        WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-        time.sleep(3)
-        text = driver.find_element(By.TAG_NAME, "body").text
-    finally:
-        driver.quit()
-
-    return text
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    with httpx.Client(follow_redirects=True, timeout=60) as client:
+        response = client.get(URL, headers=headers)
+    return response.text
 
 # ==============================
 # OPENAI EXTRACTION
