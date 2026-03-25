@@ -134,7 +134,9 @@ def create_word(data):
 
 
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    tz = pytz.timezone("Asia/Kolkata")
+    now_local = datetime.now(tz)
+    timestamp = now_local.strftime("%Y-%m-%d_%H-%M-%S")
 
     file_name = f"DART_Summary_{timestamp}.docx"
 
@@ -144,7 +146,7 @@ def create_word(data):
 
     doc.add_heading("Korean DART Disclosure Summary", level=0)
 
-    doc.add_paragraph(f"Generated on: {datetime.now()}")
+    doc.add_paragraph(f"Generated on: {now_local.strftime('%Y-%m-%d %H:%M:%S')}")
 
     doc.add_heading("Source URL", level=1)
     doc.add_paragraph(URL)
@@ -182,7 +184,7 @@ def create_word(data):
         "country": "South Korea",
         "region": "APAC",
         "industry_type": parameters.get("Sector / Sub-sector", "Not Found"),
-        "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "generated_date": now_local.strftime("%Y-%m-%d %H:%M:%S"),
         "file_size_kb": round(os.path.getsize(file_path) / 1024, 1),
         "source_url": URL,
         "website": "Korea Dart"
