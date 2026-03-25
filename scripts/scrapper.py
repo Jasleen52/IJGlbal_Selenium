@@ -14,37 +14,37 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 import os
 import re
-
+ 
  
 from NewsIntentOpenAI import detect_news_intent
 from ParametersExtract import extract_project_details
-
-
+ 
+ 
 def add_hyperlink(paragraph, url, text):
     """Add a hyperlink to a paragraph."""
     part = paragraph.part
     r_id = part.relate_to(url, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', is_external=True)
-    
+   
     hyperlink = OxmlElement('w:hyperlink')
     hyperlink.set(qn('r:id'), r_id)
-    
+   
     new_run = OxmlElement('w:r')
     rPr = OxmlElement('w:rPr')
-    
+   
     # Set hyperlink style (blue and underlined)
     color = OxmlElement('w:color')
     color.set(qn('w:val'), '0563C1')
     rPr.append(color)
-    
+   
     u = OxmlElement('w:u')
     u.set(qn('w:val'), 'single')
     rPr.append(u)
-    
+   
     new_run.append(rPr)
     new_run.text = text
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
-    
+   
     return hyperlink
  
  
@@ -67,38 +67,56 @@ def run_scraper():
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-software-rasterizer")
-
-    # Detect platform and set up driver accordingly
-    if os.name == "nt":  # Windows (local)
-        from webdriver_manager.chrome import ChromeDriverManager
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-    else:  # Linux (Streamlit Cloud)
-        chromium_path = (
-            shutil.which("chromium") or
-            shutil.which("chromium-browser") or
-            shutil.which("google-chrome") or
-            shutil.which("google-chrome-stable")
-        )
-        if chromium_path:
-            options.binary_location = chromium_path
-
-        chromedriver_path = shutil.which("chromedriver") or shutil.which("chromium-driver")
-
-        if not chromedriver_path:
-            for path in ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver",
-                         "/usr/lib/chromium-browser/chromedriver", "/snap/bin/chromedriver"]:
-                if os.path.exists(path):
-                    chromedriver_path = path
-                    break
-
-        if not chromedriver_path:
-            raise RuntimeError("chromedriver not found. Ensure chromium-driver is listed in packages.txt")
-
-        driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
-
-    
+ 
+    # Auto-detect chromium or chrome binary
+    chromium_path = (
+        shutil.which("chromium") or
+        shutil.which("chromium-browser") or
+        shutil.which("google-chrome") or
+        shutil.which("google-chrome-stable")
+    )
+    if chromium_path:
+        options.binary_location = chromium_path
+ 
+    chromedriver_path = (
+        shutil.which("chromedriver") or
+        shutil.which("chromium-driver")
+    )
+ 
+    # Check common Linux paths if not found on PATH
+    if not chromedriver_path:
+        for path in ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver",
+                     "/usr/lib/chromium-browser/chromedriver", "/snap/bin/chromedriver",
+                     "/usr/lib/chromium-driver/chromedriver", "/usr/bin/chromium-driver"]:
+            if os.path.exists(path):
+                chromedriver_path = path
+                break
+ 
+    # Search entire filesystem for chromedriver as last resort
+    if not chromedriver_path:
+        import subprocess as sp
+        try:
+            result = sp.run(["find", "/", "-name", "chromedriver", "-type", "f"],
+                          capture_output=True, text=True, timeout=10)
+            paths = [p for p in result.stdout.strip().split("\n") if p]
+            print(f"Found chromedrivers: {paths}")
+            if paths:
+                chromedriver_path = paths[0]
+        except Exception as e:
+            print(f"Find error: {e}")
+ 
+    print(f"Browser: {chromium_path}, Chromedriver: {chromedriver_path}")
+ 
+    if not chromedriver_path:
+        raise RuntimeError("chromedriver not found. Install chromium-driver via packages.txt")
+ 
+    # Disable Selenium Manager to prevent auto-downloading incompatible chromedriver
+    os.environ["SE_MANAGER_PATH"] = ""
+    driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
+ 
+   
     wait = WebDriverWait(driver, 60)
-
+ 
     try:
         for site in sites:
  
@@ -121,11 +139,11 @@ def run_scraper():
             for industry in industries:
  
                 print("\nSelecting Industry:", industry)
-
+ 
                 driver.get(site["siteURL"])
                 wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
                 time.sleep(2)
-
+ 
                 try:
                     dropdown = wait.until(EC.presence_of_element_located((By.ID, "dropdown_3")))
                     Select(dropdown).select_by_visible_text(industry)
@@ -148,11 +166,11 @@ def run_scraper():
                         el.dispatchEvent(new Event('change', { bubbles: true }));""",
                         field_id, value
                     )
-
+ 
                 time.sleep(1)
  
                 print("Clicking Apply Filter")
-
+ 
                 try:
                     driver.execute_script("""
                         var btn = document.querySelector('button.btn-entitylist-filter-submit');
@@ -175,13 +193,13 @@ def run_scraper():
                     print(f"No results found for industry '{industry}' in date range {date_from} to {date_to}")
                     print("Skipping to next industry...")
                     continue
-                
+               
                 # Check if there are actual data rows (not just "No records found" message)
                 rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
                 if len(rows) == 0:
                     print(f"No records found for industry '{industry}'")
                     continue
-                
+               
                 # Check if it's an empty state message
                 first_row_text = rows[0].text.lower() if rows else ""
                 if "no records" in first_row_text or "no results" in first_row_text:
@@ -265,7 +283,7 @@ def run_scraper():
  
                     wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
                     time.sleep(2)
-                    
+                   
                     try:
                         driver.execute_script("""
                             var btn = document.querySelector('button.btn-entitylist-filter-submit');
@@ -284,7 +302,7 @@ def run_scraper():
                     except:
                         print("Warning: Table did not reload after going back. Continuing...")
                         # Try to continue anyway
-
+ 
     finally:
         driver.quit()
  
@@ -328,9 +346,7 @@ def run_scraper():
         project_name = structured_data.get("Project Name", "Unknown Project")
         project_summary = structured_data.get("Project Summary", "No summary available.")
  
-        tz = pytz.timezone("Asia/Kolkata")
-        now_local = datetime.now(tz)
-        timestamp = now_local.strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
  
         epbc_safe = project["epbc_number"].replace("/", "_")
  
@@ -413,7 +429,7 @@ def run_scraper():
                 doc.add_paragraph(f"1. {intent.strip()}")
         else:
             doc.add_paragraph(f"1. {str(intent)}")
-        
+       
         # Add Source Link as a separate heading section with clickable hyperlink (after Signals section)
         doc.add_paragraph("")
         if "Source Link" in structured_data:
@@ -425,14 +441,14 @@ def run_scraper():
         doc.save(file_path)
  
         print(f"Saved Word document: {file_path}")
-        
+       
         # Create metadata JSON file
         json_file_name = file_name.replace(".docx", ".json")
         json_file_path = os.path.join(output_dir, json_file_name)
-        
+       
         # Get file size
         file_size_kb = os.path.getsize(file_path) / 1024
-        
+       
         # Prepare metadata
         site_info = project.get("site_info", {})
         metadata = {
@@ -446,11 +462,11 @@ def run_scraper():
             "file_size_kb": round(file_size_kb, 1),
             "source_url": project.get("source_url", "N/A")
         }
-        
+       
         # Save metadata JSON
         with open(json_file_path, "w") as json_file:
             json.dump(metadata, json_file, indent=2)
-        
+       
         print(f"Saved metadata JSON: {json_file_path}")
         print("\n----------------------------------\n")
  
