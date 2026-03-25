@@ -3,6 +3,7 @@ import json
 import streamlit as st
 from datetime import datetime
 import httpx
+import time
 from docx import Document
 from openai import AzureOpenAI
 from dotenv import load_dotenv
@@ -49,9 +50,17 @@ def scrape_text():
         "Accept-Language": "en-US,en;q=0.9",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
-    with httpx.Client(follow_redirects=True, timeout=60) as client:
-        response = client.get(URL, headers=headers)
-    return response.text
+
+    for attempt in range(3):
+        try:
+            with httpx.Client(follow_redirects=True, timeout=90) as client:
+                response = client.get(URL, headers=headers)
+            return response.text
+        except (httpx.ConnectTimeout, httpx.ReadTimeout) as e:
+            print(f"Attempt {attempt + 1} timed out: {e}")
+            if attempt < 2:
+                time.sleep(5)
+    raise RuntimeError("Failed to fetch DART page after 3 attempts")
 
 # ==============================
 # OPENAI EXTRACTION
