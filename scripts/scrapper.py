@@ -86,7 +86,8 @@ def run_scraper():
     # Check common Linux paths if not found on PATH
     if not chromedriver_path:
         for path in ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver",
-                     "/usr/lib/chromium-browser/chromedriver", "/snap/bin/chromedriver"]:
+                     "/usr/lib/chromium-browser/chromedriver", "/snap/bin/chromedriver",
+                     "/usr/lib/chromium-driver/chromedriver", "/usr/bin/chromium-driver"]:
             if os.path.exists(path):
                 chromedriver_path = path
                 break
