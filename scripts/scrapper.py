@@ -346,7 +346,9 @@ def run_scraper():
         project_name = structured_data.get("Project Name", "Unknown Project")
         project_summary = structured_data.get("Project Summary", "No summary available.")
  
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        tz = pytz.timezone("Asia/Kolkata")
+        now_local = datetime.now(tz)
+        timestamp = now_local.strftime("%Y-%m-%d_%H-%M-%S")
  
         epbc_safe = project["epbc_number"].replace("/", "_")
  
