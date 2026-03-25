@@ -1,5 +1,6 @@
 import json
 import pprint
+import argparse
 import pytz
 from datetime import datetime, timedelta
 from selenium import webdriver
@@ -52,8 +53,17 @@ def add_hyperlink(paragraph, url, text):
 def run_scraper():
  
     print("Opening sites.json...")
- 
-    with open("config/sites.json", "r") as f:
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--industries", type=str, default=None)
+    parser.add_argument("--days", type=int, default=None)
+    args, _ = parser.parse_known_args()
+
+    user_industries = json.loads(args.industries) if args.industries else None
+    user_days = args.days
+
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "sites.json")
+    with open(config_path, "r") as f:
         data = json.load(f)
  
     sites = data["sites"]
@@ -108,12 +118,13 @@ def run_scraper():
  
     print(f"Browser: {chromium_path}, Chromedriver: {chromedriver_path}")
  
-    if not chromedriver_path:
-        raise RuntimeError("chromedriver not found. Install chromium-driver via packages.txt")
- 
-    # Disable Selenium Manager to prevent auto-downloading incompatible chromedriver
-    os.environ["SE_MANAGER_PATH"] = ""
-    driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
+    if chromedriver_path:
+        # Disable Selenium Manager to prevent auto-downloading incompatible chromedriver
+        os.environ["SE_MANAGER_PATH"] = ""
+        driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
+    else:
+        # Windows or system where Selenium Manager handles chromedriver automatically
+        driver = webdriver.Chrome(options=options)
  
    
     wait = WebDriverWait(driver, 60)
@@ -131,28 +142,27 @@ def run_scraper():
             wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
             time.sleep(2)
  
-            industries = site["industryType"]
- 
+            industries = user_industries if user_industries else site["industryType"]
+            days = user_days if user_days else site["NoOfDays"]
+
             # Support string or list
             if isinstance(industries, str):
                 industries = [industries]
- 
+
             for industry in industries:
- 
+
                 print("\nSelecting Industry:", industry)
- 
+
                 driver.get(site["siteURL"])
                 wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
                 time.sleep(2)
- 
+
                 try:
                     dropdown = wait.until(EC.presence_of_element_located((By.ID, "dropdown_3")))
                     Select(dropdown).select_by_visible_text(industry)
                 except:
                     print(f"Industry '{industry}' not found in dropdown. Skipping...")
                     continue
- 
-                days = site["NoOfDays"]
  
                 date_from = (datetime.today() - timedelta(days=days)).strftime("%Y-%m-%d")
                 date_to = datetime.today().strftime("%Y-%m-%d")

@@ -562,7 +562,7 @@ def show_metadata(file_path):
         st.write(f"**Region:** {region}")
         st.write(f"**Industry Type:** {industry_type}")
         if metadata_loaded and source_url != "N/A":
-            st.write(f"**Source URL:** {source_url[:50]}...")
+            st.write(f"**Source URL:** {source_url}")
     
     st.markdown("---")
     
@@ -798,11 +798,12 @@ if st.session_state.current_tab == "Run Scraper":
                     st.error(f"Scraper error:\n{result.stderr}")
                     st.stop()
             else:
-                import subprocess
                 scraper_script = os.path.join(project_root, "scripts", "scrapper.py")
                 with st.spinner(""):
                     result = subprocess.run(
-                        [sys.executable, scraper_script],
+                        [sys.executable, scraper_script,
+                         "--industries", json.dumps(selected_industries),
+                         "--days", str(days)],
                         capture_output=True, text=True, cwd=project_root
                     )
                 if result.returncode != 0:

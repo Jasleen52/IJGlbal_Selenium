@@ -2,10 +2,11 @@ import os
 import json
 import streamlit as st
 from datetime import datetime
-import requests
+import httpx
 from docx import Document
 from openai import AzureOpenAI
 from dotenv import load_dotenv
+import pytz
 
 
 URL = "https://englishdart.fss.or.kr/dsbh001/main.do?rcpNo=20260310901403"
@@ -43,8 +44,13 @@ def scrape_text():
 
     print("Opening page...")
 
-    response = requests.get(URL, timeout=60)
-
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    with httpx.Client(follow_redirects=True, timeout=60) as client:
+        response = client.get(URL, headers=headers)
     return response.text
 
 # ==============================
@@ -129,7 +135,9 @@ def create_word(data):
 
 
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    tz = pytz.timezone("Asia/Kolkata")
+    now_local = datetime.now(tz)
+    timestamp = now_local.strftime("%Y-%m-%d_%H-%M-%S")
 
     file_name = f"DART_Summary_{timestamp}.docx"
 
@@ -139,7 +147,7 @@ def create_word(data):
 
     doc.add_heading("Korean DART Disclosure Summary", level=0)
 
-    doc.add_paragraph(f"Generated on: {datetime.now()}")
+    doc.add_paragraph(f"Generated on: {now_local.strftime('%Y-%m-%d %H:%M:%S')}")
 
     doc.add_heading("Source URL", level=1)
     doc.add_paragraph(URL)
@@ -177,7 +185,7 @@ def create_word(data):
         "country": "South Korea",
         "region": "APAC",
         "industry_type": parameters.get("Sector / Sub-sector", "Not Found"),
-        "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "generated_date": now_local.strftime("%Y-%m-%d %H:%M:%S"),
         "file_size_kb": round(os.path.getsize(file_path) / 1024, 1),
         "source_url": URL,
         "website": "Korea Dart"
