@@ -68,51 +68,33 @@ def run_scraper():
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-software-rasterizer")
 
-    # Auto-detect chromium or chrome binary
-    chromium_path = (
-        shutil.which("chromium") or
-        shutil.which("chromium-browser") or
-        shutil.which("google-chrome") or
-        shutil.which("google-chrome-stable")
-    )
-    if chromium_path:
-        options.binary_location = chromium_path
+    # Detect platform and set up driver accordingly
+    if os.name == "nt":  # Windows (local)
+        from webdriver_manager.chrome import ChromeDriverManager
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    else:  # Linux (Streamlit Cloud)
+        chromium_path = (
+            shutil.which("chromium") or
+            shutil.which("chromium-browser") or
+            shutil.which("google-chrome") or
+            shutil.which("google-chrome-stable")
+        )
+        if chromium_path:
+            options.binary_location = chromium_path
 
-    chromedriver_path = (
-        shutil.which("chromedriver") or
-        shutil.which("chromium-driver")
-    )
+        chromedriver_path = shutil.which("chromedriver") or shutil.which("chromium-driver")
 
-    # Check common Linux paths if not found on PATH
-    if not chromedriver_path:
-        for path in ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver",
-                     "/usr/lib/chromium-browser/chromedriver", "/snap/bin/chromedriver",
-                     "/usr/lib/chromium-driver/chromedriver", "/usr/bin/chromium-driver"]:
-            if os.path.exists(path):
-                chromedriver_path = path
-                break
+        if not chromedriver_path:
+            for path in ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver",
+                         "/usr/lib/chromium-browser/chromedriver", "/snap/bin/chromedriver"]:
+                if os.path.exists(path):
+                    chromedriver_path = path
+                    break
 
-    # Search entire filesystem for chromedriver as last resort
-    if not chromedriver_path:
-        import subprocess as sp
-        try:
-            result = sp.run(["find", "/", "-name", "chromedriver", "-type", "f"], 
-                          capture_output=True, text=True, timeout=10)
-            paths = [p for p in result.stdout.strip().split("\n") if p]
-            print(f"Found chromedrivers: {paths}")
-            if paths:
-                chromedriver_path = paths[0]
-        except Exception as e:
-            print(f"Find error: {e}")
+        if not chromedriver_path:
+            raise RuntimeError("chromedriver not found. Ensure chromium-driver is listed in packages.txt")
 
-    print(f"Browser: {chromium_path}, Chromedriver: {chromedriver_path}")
-
-    if not chromedriver_path:
-        raise RuntimeError("chromedriver not found. Install chromium-driver via packages.txt")
-
-    # Disable Selenium Manager to prevent auto-downloading incompatible chromedriver
-    os.environ["SE_MANAGER_PATH"] = ""
-    driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
+        driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
 
     
     wait = WebDriverWait(driver, 60)
