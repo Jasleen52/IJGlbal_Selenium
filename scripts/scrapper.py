@@ -364,7 +364,7 @@ def run_scraper():
  
         doc.add_heading(project_name, level=0)
  
-        gen_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        gen_time = now_local.strftime("%Y-%m-%d %H:%M:%S")
         doc.add_paragraph(f"Generated on: {gen_time}")
  
         doc.add_heading("Project Summary", level=1)
