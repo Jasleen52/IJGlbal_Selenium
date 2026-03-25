@@ -6,6 +6,7 @@ import httpx
 from docx import Document
 from openai import AzureOpenAI
 from dotenv import load_dotenv
+import pytz
 
 
 URL = "https://englishdart.fss.or.kr/dsbh001/main.do?rcpNo=20260310901403"
