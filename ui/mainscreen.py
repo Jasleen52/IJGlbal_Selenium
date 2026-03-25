@@ -848,7 +848,7 @@ if st.session_state.current_tab == "Run Scraper":
     
             name = os.path.basename(report)
             size = os.path.getsize(report)/1024
-            time_mod = datetime.fromtimestamp(os.path.getmtime(report)), tz=pytz.timezone("Asia/Kolkata"))
+            time_mod = datetime.fromtimestamp(os.path.getmtime(report), tz=pytz.timezone("Asia/Kolkata"))
     
             c1,c2,c3,c4,c5,c6 = st.columns([2.5,2,1,0.5,0.5,0.5])
     
@@ -1085,7 +1085,7 @@ elif st.session_state.current_tab == "Past Reports":
 
                 name = os.path.basename(report)
                 size = os.path.getsize(report) / 1024
-                time_mod = datetime.fromtimestamp(os.path.getmtime(report)), tz=pytz.timezone("Asia/Kolkata"))
+                time_mod = datetime.fromtimestamp(os.path.getmtime(report), tz=pytz.timezone("Asia/Kolkata"))
 
                 c1, c2, c3, c4, c5, c6 = st.columns([2.5, 2, 1, 0.5, 0.5, 0.5])
 
