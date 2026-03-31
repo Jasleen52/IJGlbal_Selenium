@@ -1,18 +1,28 @@
 import os
 import json
-import streamlit as st
+import time
+import pytz
 from datetime import datetime
-import httpx
 from docx import Document
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import shutil
+
 from openai import AzureOpenAI
 from dotenv import load_dotenv
-import pytz
 
-
+# ==============================
+# CONFIG
+# ==============================
 URL = "https://englishdart.fss.or.kr/dsbh001/main.do?rcpNo=20260310901403"
 load_dotenv()
+
 # ==============================
-# LOAD SECRETS (SAFE)
+# ENV
 # ==============================
 def get_env(key):
     try:
@@ -21,14 +31,11 @@ def get_env(key):
             return st.secrets[key]
     except:
         pass
-   
     return os.getenv(key)
-
 
 # ==============================
 # OPENAI CLIENT
 # ==============================
-
 def get_client():
     return AzureOpenAI(
         api_key=get_env("AZURE_OPENAI_API_KEY"),
@@ -37,38 +44,89 @@ def get_client():
     )
 
 # ==============================
-# SCRAPE WEBSITE
+# SELENIUM DRIVER (CLOUD SAFE)
 # ==============================
+def get_driver():
 
-def scrape_text():
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-blink-features=AutomationControlled")
 
-    print("Opening page...")
+    # Detect browser
+    chromium_path = (
+        shutil.which("chromium") or
+        shutil.which("chromium-browser") or
+        shutil.which("google-chrome") or
+        shutil.which("google-chrome-stable")
+    )
+    if chromium_path:
+        options.binary_location = chromium_path
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    }
-    with httpx.Client(follow_redirects=True, timeout=60) as client:
-        response = client.get(URL, headers=headers)
-    return response.text
+    chromedriver_path = (
+        shutil.which("chromedriver") or
+        shutil.which("chromium-driver")
+    )
+
+    if chromedriver_path:
+        driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
+    else:
+        driver = webdriver.Chrome(options=options)
+
+    return driver
+
+# ==============================
+# SCRAPE KOREAN DART
+# ==============================
+def scrape_korean_dart(driver, wait, url):
+
+    print("Opening Korean DART homepage...")
+    driver.get("https://englishdart.fss.or.kr")
+    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+    time.sleep(2)
+
+    print("Opening disclosure page...")
+    driver.get(url)
+
+    time.sleep(5)
+
+    # Try iframe
+    try:
+        iframe = wait.until(EC.presence_of_element_located((By.TAG_NAME, "iframe")))
+        driver.switch_to.frame(iframe)
+        print("Switched to iframe")
+    except:
+        print("No iframe, continuing...")
+
+    time.sleep(2)
+
+    # Scroll
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(2)
+
+    text = driver.find_element(By.TAG_NAME, "body").text
+
+    print("Extracted text length:", len(text))
+
+    return text
 
 # ==============================
 # OPENAI EXTRACTION
 # ==============================
-
 def extract_data(text):
 
     client = get_client()
 
     prompt = f"""
-
 Read the disclosure text and return:
 
 1️⃣ Summary in English
 2️⃣ Extract these parameters
 
-Return JSON only.
+Return JSON only. Do not add explanation.
 
 Parameters to extract:
 
@@ -85,8 +143,7 @@ Source / Publication Date
 If a value is missing write "Not Found".
 
 TEXT:
-{text}
-
+{text[:15000]}
 
 Output JSON format:
 
@@ -109,20 +166,20 @@ Output JSON format:
     response = client.chat.completions.create(
         model=get_env("AZURE_OPENAI_DEPLOYMENT"),
         messages=[
-            {"role": "system", "content": "You extract structured financial project data."},
+            {"role": "system", "content": "You extract structured financial project data and always return valid JSON only."},
             {"role": "user", "content": prompt}
         ],
         temperature=0.2
     )
 
     result = response.choices[0].message.content
-
     return json.loads(result)
 
-# ==============================
-# CREATE WORD DOCUMENT
-# ==============================
+    
 
+# ==============================
+# WORD EXPORT
+# ==============================
 def create_word(data):
 
     summary = data["summary"]
@@ -205,7 +262,10 @@ def run():
 
     print("Extracting website text...")
 
-    text = scrape_text()
+    driver = get_driver()
+    wait = WebDriverWait(driver, 60)
+
+    text = scrape_korean_dart(driver, wait, URL)
 
     print("Sending to Azure OpenAI...")
 
