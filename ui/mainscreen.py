@@ -207,7 +207,7 @@ if 'scraper_config' not in st.session_state:
     }
 
 # Modal popup dialog for filters
-@st.dialog("🔍 Relevance Phrases & Keywords")
+@st.dialog("🔍 Relevant Phrases & Keywords")
 def show_filters_dialog():
     # Load relevance filters from JSON
     relevance_config_path = os.path.join(project_root, "config", "relevantnews.json")
@@ -221,7 +221,7 @@ def show_filters_dialog():
     filter_col1, filter_col2 = st.columns(2)
     
     with filter_col1:
-        st.subheader("📋 Relevance Phrases")
+        st.subheader("📋 Relevant Phrases")
         
         # Display existing phrases in a clean list
         if phrases:
@@ -298,7 +298,7 @@ def show_filters_dialog():
                 st.error("⚠️ Please enter a valid phrase!")
     
     with filter_col2:
-        st.subheader("🔑 Relevance Keywords")
+        st.subheader("🔑 Relevant Keywords")
         
         # Display existing keywords in a clean list
         if keywords:
@@ -390,8 +390,8 @@ def show_filters_dialog():
        st.rerun()
 
 # Header
-st.markdown('<div class="main-header">🌐 Scraper & Report Viewer</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Configure and run web scraping tasks, then view generated reports</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🌐 Report Generator & Viewer</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Configure and run web extraction to generate report and view generated report</div>', unsafe_allow_html=True)
 
 # Phrases button in sidebar area
 with st.columns([1])[0]:
@@ -411,7 +411,7 @@ run_scraper_type = "primary" if st.session_state.current_tab == "Run Scraper" el
 past_reports_type = "primary" if st.session_state.current_tab == "Past Reports" else "secondary"
 
 with tab_col1:
-    if st.button("▶️ Generate Report", use_container_width=True, key="tab_run_scraper", type=run_scraper_type):
+    if st.button("▶️ Current Report", use_container_width=True, key="tab_run_scraper", type=run_scraper_type):
         st.session_state.current_tab = "Run Scraper"
         st.rerun()
 
@@ -705,7 +705,7 @@ if st.session_state.current_tab == "Run Scraper":
     
     with col1:
     
-        st.subheader("📊 Scraper Configuration")
+        st.subheader("📊 Configuration")
     
         c1, c2 = st.columns(2)
     
