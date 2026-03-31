@@ -235,11 +235,19 @@ def run_scraper():
  
                 print("Total records found:", len(rows))
  
-                for i in range(len(rows)):
- 
+                total_rows = len(rows)
+
+                for i in range(total_rows):
                     rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+                    if i >= len(rows):
+                        print(f"Row {i} no longer available, stopping iteration")
+                        break
  
                     cells = rows[i].find_elements(By.TAG_NAME, "td")
+                    if not cells:
+                        print(f"Row {i} has no cells, skipping")
+                        continue
+
                     try:
                         link = cells[0].find_element(By.TAG_NAME, "a")
                     except:
@@ -307,12 +315,11 @@ def run_scraper():
                     except:
                         print("Warning: Could not trigger metafilter after going back")
  
-                    # Wait for table to reload after going back
+                    # Wait for table to reload with the expected number of rows
                     try:
-                        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
+                        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, "table tbody tr")) >= total_rows)
                     except:
-                        print("Warning: Table did not reload after going back. Continuing...")
-                        # Try to continue anyway
+                        print("Warning: Table did not fully reload after going back. Continuing...")
  
     finally:
         driver.quit()

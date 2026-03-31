@@ -4,16 +4,12 @@ import time
 import pytz
 from datetime import datetime
 from docx import Document
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import shutil
-
 from openai import AzureOpenAI
 from dotenv import load_dotenv
+
+import scrapy
+from scrapy.crawler import CrawlerProcess
+from scrapy.utils.project import get_project_settings
 
 # ==============================
 # CONFIG
@@ -44,73 +40,48 @@ def get_client():
     )
 
 # ==============================
-# SELENIUM DRIVER (CLOUD SAFE)
+# SCRAPY SPIDER
 # ==============================
-def get_driver():
+scraped_results = []
 
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("--disable-blink-features=AutomationControlled")
+class DartSpider(scrapy.Spider):
+    name = "dart_spider"
+    custom_settings = {
+        "LOG_ENABLED": False,
+        "ROBOTSTXT_OBEY": False,
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "DEFAULT_REQUEST_HEADERS": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+        "RETRY_TIMES": 3,
+        "RETRY_HTTP_CODES": [500, 502, 503, 504, 408, 429],
+        "DOWNLOAD_TIMEOUT": 90,
+    }
 
-    # Detect browser
-    chromium_path = (
-        shutil.which("chromium") or
-        shutil.which("chromium-browser") or
-        shutil.which("google-chrome") or
-        shutil.which("google-chrome-stable")
-    )
-    if chromium_path:
-        options.binary_location = chromium_path
+    start_urls = [URL]
 
-    chromedriver_path = (
-        shutil.which("chromedriver") or
-        shutil.which("chromium-driver")
-    )
-
-    if chromedriver_path:
-        driver = webdriver.Chrome(service=Service(chromedriver_path), options=options)
-    else:
-        driver = webdriver.Chrome(options=options)
-
-    return driver
+    def parse(self, response):
+        text = " ".join(response.css("body *::text").getall()).strip()
+        scraped_results.append(text)
 
 # ==============================
-# SCRAPE KOREAN DART
+# SCRAPE USING SCRAPY
 # ==============================
-def scrape_korean_dart(driver, wait, url):
+def scrape_text():
+    print("Opening page with Scrapy...")
+    scraped_results.clear()
 
-    print("Opening Korean DART homepage...")
-    driver.get("https://englishdart.fss.or.kr")
-    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-    time.sleep(2)
+    process = CrawlerProcess(get_project_settings())
+    process.crawl(DartSpider)
+    process.start()
 
-    print("Opening disclosure page...")
-    driver.get(url)
+    if not scraped_results:
+        raise RuntimeError("Scrapy failed to fetch content from DART page")
 
-    time.sleep(5)
-
-    # Try iframe
-    try:
-        iframe = wait.until(EC.presence_of_element_located((By.TAG_NAME, "iframe")))
-        driver.switch_to.frame(iframe)
-        print("Switched to iframe")
-    except:
-        print("No iframe, continuing...")
-
-    time.sleep(2)
-
-    # Scroll
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(2)
-
-    text = driver.find_element(By.TAG_NAME, "body").text
-
+    text = scraped_results[0]
     print("Extracted text length:", len(text))
-
     return text
 
 # ==============================
@@ -145,6 +116,7 @@ If a value is missing write "Not Found".
 TEXT:
 {text[:15000]}
 
+
 Output JSON format:
 
 {{
@@ -175,8 +147,6 @@ Output JSON format:
     result = response.choices[0].message.content
     return json.loads(result)
 
-    
-
 # ==============================
 # WORD EXPORT
 # ==============================
@@ -185,36 +155,25 @@ def create_word(data):
     summary = data["summary"]
     parameters = data["parameters"]
 
-    #onedrive_path = os.getenv("OneDriveCommercial") or os.getenv("OneDrive")
-    # ✅ LOCAL OUTPUT FOLDER
     output_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
     os.makedirs(output_folder, exist_ok=True)
-
-
 
     tz = pytz.timezone("Asia/Kolkata")
     now_local = datetime.now(tz)
     timestamp = now_local.strftime("%Y-%m-%d_%H-%M-%S")
 
     file_name = f"DART_Summary_{timestamp}.docx"
-
     file_path = os.path.join(output_folder, file_name)
 
     doc = Document()
-
     doc.add_heading("Korean DART Disclosure Summary", level=0)
-
     doc.add_paragraph(f"Generated on: {now_local.strftime('%Y-%m-%d %H:%M:%S')}")
-
     doc.add_heading("Source URL", level=1)
     doc.add_paragraph(URL)
-
     doc.add_heading("Summary", level=1)
     doc.add_paragraph(summary)
-
     doc.add_paragraph("")
 
-    # TABLE
     table = doc.add_table(rows=1, cols=2)
     table.style = "Table Grid"
 
@@ -233,9 +192,7 @@ def create_word(data):
 
     doc.save(file_path)
 
-    # JSON metadata
     json_file_path = file_path.replace(".docx", ".json")
-
     metadata = {
         "file_name": file_name,
         "project_name": parameters.get("Project / Asset Name", "Not Found"),
@@ -257,24 +214,17 @@ def create_word(data):
 # ==============================
 # MAIN
 # ==============================
-
 def run():
 
     print("Extracting website text...")
-
-    driver = get_driver()
-    wait = WebDriverWait(driver, 60)
-
-    text = scrape_korean_dart(driver, wait, URL)
+    text = scrape_text()
 
     print("Sending to Azure OpenAI...")
-
     data = extract_data(text)
 
     print("\nSummary:\n", data["summary"])
 
     print("\nCreating Word file...")
-
     create_word(data)
 
 if __name__ == "__main__":
