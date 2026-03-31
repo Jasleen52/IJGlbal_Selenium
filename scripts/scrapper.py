@@ -195,26 +195,33 @@ def run_scraper():
                     print(f"Apply Filter error: {e}")
                     continue
  
-                # Wait for page to process the filter
-                time.sleep(3)
-                # Check if results table exists
+                # Capture unfiltered row count before filter applies
+                pre_filter_rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+                pre_filter_count = len(pre_filter_rows)
+
+                # Wait until row count changes (filter has been applied)
                 try:
-                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
+                    wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, "table tbody tr")) != pre_filter_count)
                 except:
-                    print(f"No results found for industry '{industry}' in date range {date_from} to {date_to}")
-                    print("Skipping to next industry...")
-                    continue
-               
-                # Check if there are actual data rows (not just "No records found" message)
+                    # Row count didn't change — could mean filter returned same count or page didn't respond
+                    print(f"Warning: Row count did not change after filter for '{industry}', verifying content...")
+
+                time.sleep(2)
+
                 rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+
                 if len(rows) == 0:
                     print(f"No records found for industry '{industry}'")
                     continue
-               
-                # Check if it's an empty state message
+
                 first_row_text = rows[0].text.lower() if rows else ""
                 if "no records" in first_row_text or "no results" in first_row_text:
                     print(f"No records found for industry '{industry}'")
+                    continue
+
+                first_row_cells = rows[0].find_elements(By.TAG_NAME, "td")
+                if not first_row_cells:
+                    print(f"No records found for industry '{industry}' (empty row structure)")
                     continue
  
                 # Find column indexes
