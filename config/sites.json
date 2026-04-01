@@ -18,6 +18,15 @@
       "industryType": "Manufacture of medical and dental instruments and supplies",
       "valid": "No",
       "isLoginRequired": false
+    },
+    {
+      "siteName": "ASX",
+      "region": "APAC",
+      "country":"Australia",
+      "siteURL": "https://www.asx.com.au/markets/trade-our-cash-market/todays-announcements",
+      "industryType": "Energy",
+      "valid": "No",
+      "isLoginRequired": false
     }
   ]
 }

@@ -687,7 +687,8 @@ if st.session_state.current_tab == "Run Scraper":
             "📅 Number of Days",
             min_value=1,
             max_value=365,
-            value=7
+            value=7,
+            disabled=(website == "ASX")
         )
     
         st.divider()
@@ -786,13 +787,23 @@ if st.session_state.current_tab == "Run Scraper":
 
             run_start_time = time.time()
     
-            # Check if Korean website is selected
+            # Check which website is selected and run appropriate scraper
             if website == "Korea Dart":
                 korean_script = os.path.join(project_root, "Testkorean.py")
                 with st.spinner(""):
                     result = subprocess.run(
                         [sys.executable, korean_script],
                         capture_output=True, text=True, cwd=project_root
+                    )
+                if result.returncode != 0:
+                    st.error(f"Scraper error:\n{result.stderr}")
+                    st.stop()
+            elif website == "ASX":
+                asx_script = os.path.join(project_root, "scripts", "ASX.py")
+                with st.spinner(""):
+                    result = subprocess.run(
+                        [sys.executable, asx_script],
+                        capture_output=True, text=True, cwd=os.path.join(project_root, "scripts")
                     )
                 if result.returncode != 0:
                     st.error(f"Scraper error:\n{result.stderr}")
