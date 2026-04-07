@@ -756,11 +756,11 @@ if st.session_state.current_tab == "Run Scraper":
 </div>
 """, unsafe_allow_html=True)
     
-            step_indicator.info("Step 1/4 : Initializing scraper")
+            step_indicator.info("Step 1/4 : Initializing Agent")
 
             record_counter.metric("Processed Records", 0)
  
-            step_indicator.info("Step 1/4 : Initializing scraper")
+            step_indicator.info("Step 1/4 : Initializing Agent")
             progress_bar.progress(10)
             time.sleep(0.5)
  
@@ -825,7 +825,7 @@ if st.session_state.current_tab == "Run Scraper":
 
             loader.empty()
 
-            step_indicator.success("✅ Scraping Completed")
+            step_indicator.success("✅ Extraction Completed")
 
             st.balloons()
 
@@ -893,7 +893,7 @@ if st.session_state.current_tab == "Run Scraper":
             st.divider()
     
     else:
-        st.info("📭 No reports generated in current session. Run the scraper to generate reports.")
+        st.info("📭 No reports generated in current session.")
 
 # ---------- TAB 2: PAST REPORTS ----------
 
