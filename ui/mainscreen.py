@@ -825,10 +825,6 @@ if st.session_state.current_tab == "Run Scraper":
 
             loader.empty()
 
-            step_indicator.success("✅ Extraction Completed")
-
-            st.balloons()
-
             # Update records after completion
             current_files = 0
             if os.path.exists(output_dir):
@@ -837,6 +833,12 @@ if st.session_state.current_tab == "Run Scraper":
             new_records = current_files - initial_files
 
             record_counter.metric("Processed Records", new_records)
+
+            if new_records > 0:
+                step_indicator.success("✅ Extraction Completed")
+                st.balloons()
+            else:
+                step_indicator.warning("⚠️ No data found for the selected date range")
             
             # Store session reports
             if os.path.exists(output_dir):
